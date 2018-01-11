@@ -1,10 +1,19 @@
+// helpful links for finishing up the bonus task
+// 1. https://github.com/jonschlinkert/write-yaml
+// 2. https://www.npmjs.com/package/read-yaml
+const yaml = require('write-yaml');
+const read = require('read-yaml');
+
 // database is let instead of const to allow us to modify it in test.js
 let database = {
   users: {},
   articles: {},
-  nextArticleId: 1
+  nextArticleId: 1,
+  comments: {},
+  nextCommentId: 1
 };
 
+// completed the routes section with comments routes as provided in the specification
 const routes = {
   '/users': {
     'POST': getOrCreateUser
@@ -26,6 +35,19 @@ const routes = {
   },
   '/articles/:id/downvote': {
     'PUT': downvoteArticle
+  },
+  '/comments': {
+    'POST': createComment
+  },
+  '/comments/:id': {
+    'PUT': updateComment,
+    'DELETE': deleteComment
+  },
+  '/comments/:id/upvote': {
+    'PUT': upvoteComment
+  },
+  '/comments/:id/downvote': {
+    'PUT': downvoteComment
   }
 };
 
@@ -180,7 +202,6 @@ function deleteArticle(url, request) {
   } else {
     response.status = 400;
   }
-
   return response;
 }
 
@@ -238,6 +259,127 @@ function downvote(item, username) {
     item.downvotedBy.push(username);
   }
   return item;
+}
+
+// Added utility methods related to the comments
+function isValidComment(requestComment) {
+  if (requestComment && requestComment.body && requestComment.username && database.users[requestComment.username] && requestComment.articleId && database.articles[requestComment.articleId]) {
+    return true;
+  }
+  return false;
+}
+
+function createComment(url, request) {
+  const requestComment = request.body && request.body.comment;
+  const response = {};
+
+  if (isValidComment(requestComment)) {
+    // created a new comment object
+    let comment = {
+      id: database.nextCommentId,
+      body: requestComment.body,
+      username: requestComment.username,
+      articleId: requestComment.articleId,
+      upvotedBy: [],
+      downvotedBy: []
+    }
+
+    database.comments[comment.id] = comment;
+    database.users[comment.username].commentIds.push(comment.id);
+    database.articles[comment.articleId].commentIds.push(comment.id);
+    database.nextCommentId = database.nextCommentId + 1;
+
+    response.body = {comment: comment};
+    response.status = 201;
+  } else {
+    response.status = 400;
+  }
+  return response;
+}
+
+function updateComment(url, request) {
+  const id = Number(url.split('/').filter(segment => segment)[1]);
+  const savedComment = database.comments[id];
+  const requestComment = request.body && request.body.comment;
+  const response = {};
+
+  if (!id || !requestComment || !requestComment.body) {
+    response.status = 400;
+  } else if (!savedComment) {
+    response.status = 404;
+  } else {
+    savedComment.body = requestComment.body;
+
+    response.body = {comment: savedComment};
+    response.status = 200;
+  }
+  return response;
+}
+
+function deleteComment(url, request) {
+  const id = Number(url.split('/').filter(segment => segment)[1]);
+  const savedComment = database.comments[id];
+  const response = {};
+
+  if (savedComment) {
+    const username = savedComment.username;
+    const articleId = savedComment.articleId;
+    database.comments[id] = null;
+    const userCommentIds = database.users[username].commentIds;
+    userCommentIds.splice(userCommentIds.indexOf(id), 1);
+    const articleCommentIds = database.articles[articleId].commentIds;
+    articleCommentIds.splice(articleCommentIds.indexOf(id), 1);
+
+    response.status = 204;
+  } else {
+    response.status = 404;
+  }
+  return response;
+}
+
+function upvoteComment(url, request) {
+  const id = Number(url.split('/').filter(segment => segment)[1]);
+  const username = request.body && request.body.username;
+  let savedComment = database.comments[id];
+  const response = {};
+
+  if (savedComment && database.users[username]) {
+    savedComment = upvote(savedComment, username);
+
+    response.body = {comment: savedComment};
+    response.status = 200;
+  } else {
+    response.status = 400;
+  }
+  return response;
+}
+
+function downvoteComment(url, request) {
+  const id = Number(url.split('/').filter(segment => segment)[1]);
+  const username = request.body && request.body.username;
+  let savedComment = database.comments[id];
+  const response = {};
+
+  if (savedComment && database.users[username]) {
+    savedComment = downvote(savedComment, username);
+
+    response.body = {comment: savedComment};
+    response.status = 200;
+  } else {
+    response.status = 400;
+  }
+  return response;
+}
+
+// load database from yml file
+function loadDatabase() {
+  let data = read.sync('data.yml');
+  return data;
+}
+
+// save database to yml file
+function saveDatabase(){
+  yaml.sync('data.yml', database);
 }
 
 // Write all code above this line.

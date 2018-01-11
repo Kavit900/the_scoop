@@ -1,0 +1,22 @@
+users:
+  Kavit1:
+    username: Kavit1
+    articleIds:
+      - 1
+    commentIds: []
+  Kavit:
+    username: Kavit
+    articleIds: []
+    commentIds: []
+articles:
+  '1':
+    id: 1
+    title: Hello World 2
+    url: adasdasddasda.com
+    username: Kavit1
+    commentIds: []
+    upvotedBy: []
+    downvotedBy: []
+nextArticleId: 2
+comments: {}
+nextCommentId: 1
